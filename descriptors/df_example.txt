@@ -1,0 +1,30 @@
+pdb	oligomer	net_charge
+6wcu	dimer	
+3ra3	dimer	
+2zta	dimer	
+8gu7	dimer	
+6u47	trimer	
+3gjp	trimer	
+7qdk	trimer	
+5uxt	trimer	
+1txp	tetramer	
+3f86	tetramer	
+3r4h	tetramer	
+2b22	tetramer	
+8suz	pentamer	
+7bas	pentamer	
+4pn8	pentamer
+7bav	pentamer	
+4pn9	hexamer	
+3r46	hexamer	
+2b1f	hexamer	
+5vte	hexamer
+6eik	heptamer	
+5f2y	heptamer
+5ez9	heptamer
+7nfn	heptamer	
+6g6f	octamer	
+6g67	octamer	
+7bim	nonamer
+mariposa		
+

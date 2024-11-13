@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+from unittest.mock import inplace
 
 # Usage: pymol -qc script.py
 # Usage: python script.py fullPDB_path PDB_list(.txt)
@@ -99,7 +100,7 @@ def assign_location():
             df_pdb.at[i, "location"] = "interface"
 
 #Function 5: calculate log of location propensity per residue.
-def calculate_residues_stickiness(df_pdb):
+def calculate_residues_stickiness(df_pdb, pdb, oligomer):
     # First, we will create the dataframe to store the stickiness scale:
     df_res = pd.DataFrame(data={"residue": ["ALA", "CYS", "ASP", "GLU", "PHE", "GLY", "HIS", "ILE", "LYS",
                                                          "LEU", "MET", "ASN", "PRO", "GLN", "ARG", "SER", "THR", "VAL",
@@ -109,8 +110,8 @@ def calculate_residues_stickiness(df_pdb):
     df_res["freq_interface"] = 0
     df_res["freq_surface"] = 0
     df_res["log(freq_interface/freq_surface)"] = 0
+    df_res["log_normalized"] = 0
     # Then, we will identify the PDB file and read its corresponding output with rASA values:
-    pdb = df_pdb[:4]
     df_pdb = pd.read_csv(os.path.join(os.getcwd(),f"output_rASA_files/{df_pdb}"), sep="\t", header=(0))
     # Iteration to calculate frequencies and log between interface/surface:
     for i, row in df_pdb.iterrows():
@@ -120,18 +121,34 @@ def calculate_residues_stickiness(df_pdb):
             df_res.at[residue,"freq_interface"] = df_res.loc[residue,"freq_interface"]+1
         elif location == "surface":
             df_res.at[residue,"freq_surface"] = df_res.loc[residue,"freq_surface"]+1
+    # Values to later generate a normalizing scale:
+    min_log = 0
+    max_log = 0
     for i,row in df_res.iterrows():
         if df_res.loc[i,"freq_interface"] != 0 and df_res.loc[i,"freq_surface"] !=0:
             log = (math.log(df_res.loc[i,"freq_interface"]/df_res.loc[i,"freq_surface"]))
             df_res.at[i,"log(freq_interface/freq_surface)"] = log
+        else:
+            log = 0
+        # Values to later generate a normalizing scale:
+        if log > max_log:
+            max_log = log
+        elif log < min_log:
+            min_log = log
+    # Transformation of values into a -1,0,+1 scale range:
+    for i, row in df_res.iterrows():
+        log = df_res.loc[i,"log(freq_interface/freq_surface)"]
+        log_norm = (log - min_log) / (max_log - min_log)
+        log_norm = 2 * log_norm - 1
+        df_res.at[i,"log_normalized"] = log_norm
     # Graphical representation of the calculated stickiness scale:
     plt.figure(figsize=(10, 10))
-    df_res.plot(y="log(freq_interface/freq_surface)", use_index=True, kind="bar")
+    df_res.plot(y="log_normalized", use_index=True, kind="bar")
     plt.axhline(0, color='k')
+    plt.title(f"{pdb}: {oligomer}", loc="center")
     plt.savefig(f"./output_stickiness_scales/{pdb}_stickiness_scale.png")
     # Finally, we will save our results:
     df_res.to_csv(f"./output_stickiness_scales/{pdb}_stickiness_scale.csv", sep = "\t")
-
 
 
 
@@ -191,11 +208,13 @@ with open("./unprocessed_PDBs.txt","w") as file:
     file.close()
 
 # Iterate through rASA output for each PDB file:
+df_list.set_index("pdb", inplace=True)
 for df_pdb in os.listdir(os.path.join(os.getcwd(), f"output_rASA_files")):
     try:
         pdb = df_pdb[:4]
+        oligomer = df_list.loc[pdb,"oligomer"]
         if not f"{pdb}_stickiness_scale.csv" in os.listdir(os.path.join(os.getcwd(), f"output_stickiness_scales")):
             # Calculate the stickiness scale for each PDB file:
-            calculate_residues_stickiness(df_pdb)
+            calculate_residues_stickiness(df_pdb, pdb, oligomer)
     except:
         print(f"Error: the {df_pdb} file was not found.")

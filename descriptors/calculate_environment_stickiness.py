@@ -213,6 +213,7 @@ for df_pdb in os.listdir(os.path.join(os.getcwd(), f"output_rASA_files")):
     try:
         pdb = df_pdb[:4]
         oligomer = df_list.loc[pdb,"oligomer"]
+        #oligomer = "" # For cases in which no previous oligomer classification has been made
         if not f"{pdb}_stickiness_scale.csv" in os.listdir(os.path.join(os.getcwd(), f"output_stickiness_scales")):
             # Calculate the stickiness scale for each PDB file:
             calculate_residues_stickiness(df_pdb, pdb, oligomer)

@@ -16,8 +16,11 @@ from Bio.PDB import *
 parser = PDBParser(QUIET=True)
 from pymol import *
 import freesasa
+freesasa.Parameters.defaultParameters["algorithm"] = "ShrakeRupley"
+print(f"Freesasa software default parameters: {freesasa.Parameters.defaultParameters}")
 import sys, os
 import subprocess
+import matplotlib.pyplot as plt
 
 # ARGUMENTS:
 fullPDB = sys.argv[1]
@@ -60,7 +63,7 @@ def extract_chains(ent_file, pdb):
     return split_chains
 
 # Function 3a and 3b: perform rASA calculation per residue in complexed (3a) and unbound (3b) states.
-def calculate_rASA_complexed(ent_file, df_pdb):
+def calculate_rASA_complexed(ent_file, df_pdb, residues_names):
     structure = freesasa.Structure(ent_file)
     result = freesasa.calc(structure)
     rASA = result.residueAreas()
@@ -69,6 +72,7 @@ def calculate_rASA_complexed(ent_file, df_pdb):
         for residue in rASA[chain]:
             #print(chain, residue, round(rASA[chain][residue].total, 2))
             value = rASA[chain][residue].total
+            df_pdb.at[i, "residue_name"] = residues_names[i]
             df_pdb.at[i, "residue_number"] = residue
             df_pdb.at[i, "chain"] = chain
             df_pdb.at[i, "rASA_complexed"] = round(value, 2)
@@ -125,7 +129,6 @@ def calculate_residues_stickiness(df_pdb, pdb, oligomer):
     df_res["log_normalized"] = 0
     # Then, we will identify the PDB file and read its corresponding output with rASA values:
     df_pdb = pd.read_csv(os.path.join(os.getcwd(),f"output_rASA_files/{df_pdb}"), sep="\t", header=(0))
-    print("True")
     # Iteration to calculate frequencies and log between interface/surface:
     for i, row in df_pdb.iterrows():
         residue = df_pdb.iloc[i, 1]
@@ -153,7 +156,7 @@ def calculate_residues_stickiness(df_pdb, pdb, oligomer):
         log = df_res.loc[i,"log(freq_interface/freq_surface)"]
         log_norm = (log - min_log) / (max_log - min_log)
         log_norm = 2 * log_norm - 1
-        df_res.at[i,"log_normalized"] = log_norm
+        df_res.at[i,"log_normalized"] = round(log_norm,3)
     # Graphical representation of the calculated stickiness scale:
     plt.figure(figsize=(10, 10))
     df_res.plot(y="log_normalized", use_index=True, kind="bar")
@@ -167,13 +170,22 @@ pymol.finish_launching(["pymol","-qc"]) # Run PyMol from script without opening 
 for i in df_list.index:
     pdb = df_list['pdb'][i]
     print(pdb)
+    residues_names = []
     try:
         df_pdb = create_dataframe()
         ent_file = f"pdb{pdb}.ent" # General use for fullPDB
         ent_file = os.path.join(fullPDB, ent_file)
         try:
+            structure = parser.get_structure(pdb, ent_file)
+            residues_obj = Structure.Structure.get_residues(structure)
+            for res in residues_obj:
+                if Residue.Residue.get_resname(res) != "HOH":
+                    residues_names.append(Residue.Residue.get_resname(res))
+        except:
+            print(f"Error in parsing {pdb}.")
+        try:
             # Calculation of each individual residue rASA:
-            calculate_rASA_complexed(ent_file, df_pdb)
+            calculate_rASA_complexed(ent_file, df_pdb, residues_names)
             # Separate each chain individually:
             split_chains = extract_chains(ent_file, pdb)
             # Calculation of each individual residue rASA, now per each single chain:

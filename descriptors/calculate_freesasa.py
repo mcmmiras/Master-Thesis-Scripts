@@ -13,6 +13,8 @@
 import pandas as pd
 from math import sqrt, log
 from Bio.PDB import *
+from pymol.plugins.legacysupport import installPlugin
+
 parser = PDBParser(QUIET=True)
 from pymol import *
 import freesasa
@@ -226,10 +228,10 @@ cmd.quit()
 for df_pdb in os.listdir(os.path.join(os.getcwd(), f"output_rASA_files")):
     try:
         pdb = df_pdb[5:9]
-        #oligomer = df_list.loc[pdb,"oligomer"]
-        oligomer = "" # For cases in which no previous oligomer classification has been made
+        df_list.set_index("pdb", inplace=True)
+        oligomer = df_list.loc[pdb,"oligomer"]
+        #oligomer = "" # For cases in which no previous oligomer classification has been made
         if not f"{pdb}_stickiness_scale.csv" in os.listdir(os.path.join(os.getcwd(), f"output_stickiness_scales")):
-            print(True)
             # Calculate the stickiness scale for each PDB file:
             calculate_residues_stickiness(df_pdb, pdb, oligomer)
     except:

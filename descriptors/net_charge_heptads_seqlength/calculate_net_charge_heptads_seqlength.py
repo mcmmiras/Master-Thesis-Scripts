@@ -1,4 +1,5 @@
 # !usr/bin/env python
+from enum import unique
 
 # Usage: python script.py fullPDB_path PDB_list(.txt)
 
@@ -12,6 +13,7 @@ sr = ShrakeRupley()
 import os, sys, subprocess
 import pandas as pd
 import re
+import traceback
 
 
 # ARGUMENTS:
@@ -23,7 +25,10 @@ if not "fasta_files" in os.listdir(dir):
     subprocess.run(f"mkdir fasta_files/", shell=True)
 if not "modified_PDBs" in os.listdir(dir):
     subprocess.run(f"mkdir modified_PDBs/", shell=True)
+if not "heptads_annotation" in os.listdir(dir):
+    subprocess.run(f"mkdir heptads_annotation/", shell=True)
 resultsHeptads = open("output_heptads_annotation.txt", "w")
+errors = open("unprocessed_files_traceback.txt","w")
 
 
 # DICTIONARIES:
@@ -66,7 +71,8 @@ aminoacids = {
 
 # FUNCTIONS:
 # 1. Function to assign heptad repeats:
-def assign_heptads(pdb):
+def assign_heptads(pdb, index):
+    df_heptads = pd.DataFrame()
     heptads = str()
     #hydrophobicResidues = str()
     if not f"{pdb}.fasta" in os.listdir(f"{dir}/fasta_files/"):
@@ -74,12 +80,23 @@ def assign_heptads(pdb):
     fasta_file = f"{dir}/fasta_files/{pdb}.fasta"
     fasta_file = open(fasta_file, "r")
     fasta = fasta_file.read().splitlines()
+    df_heptads.at[index, f"pdb"] = pdb
+    unique_chains = 0
+    resultsHeptads.write(f"{pdb}\n")
     for line in fasta:
+        if ">" not in line:
+            unique_chains += 1
+    df_heptads.at[index,"unique_chains"] = unique_chains
+    i_seq = 0
+    for line in fasta:
+        # for i_seq, seq in enumerate(sequences_list):
+        #     seq_num = i_seq + 1
+        #     df_heptads[f"seq1_heptad{heptad_num}_position"] = pos
         i = 0
         if ">" not in line:
+            i_seq += 1
             seq = line
             seq_length = int(len(seq))
-            print(seq_length)
             while i < (len(seq)):
                 if seq[i] == "X":
                     i+=1
@@ -93,13 +110,19 @@ def assign_heptads(pdb):
                         heptads = heptads+"-"
             heptads = heptads[:len(seq)]
             positions = [i.start() for i in re.finditer("abcdefg", heptads)]
-            resultsHeptads.write(f"\n{pdb}\n{seq}\n{heptads}\n")
+            resultsHeptads.write(f"{seq}\n{heptads}\n{positions}\n\n")
+            df_heptads.at[index, f"sequence{str(i_seq)}_length"] = seq_length
+            df_heptads.at[index, f"seq{str(i_seq)}_heptad_number"] = len(positions)
+            for i_pos, pos in enumerate(positions):
+                heptad_num = i_pos+1
+                df_heptads.at[index,f"seq{str(i_seq)}_heptad{str(heptad_num)}_position"] = pos
         # for ele in heptads:
         #     if ele == "a" or ele == "d":
         #         pos = heptads.index(ele)
         #         hydrophobicResidues = hydrophobicResidues+seq[pos]
-            return seq, positions, seq_length#, hydrophobicResidues
+            #return seq, positions, seq_length, unique_chains#, hydrophobicResidues
     fasta_file.close()
+    return df_heptads
 
 
 # 2. Function to calculate the net-charge of a protein in a specific pH.
@@ -160,19 +183,21 @@ for i in df.index:
         ent_file = f"pdb{df['pdb'][i]}.ent"
         ent_file = os.path.join(fullPDB, ent_file)
         try: # Calculate protein's global net-charge
-            df.at[i, "net_charge"] = calculate_net_charge(ent_file)
             try: # Assign heptad repeats
                 structure = parser.get_structure(pdb,ent_file)
-                print(f"\n{pdb}")
-                sequence, positions, seq_length = assign_heptads(pdb)
+                #sequence, positions, seq_length, unique_chains =
+                df_heptads = assign_heptads(pdb,i)
+                df_heptads.at[i,"net_charge"] = calculate_net_charge(ent_file)
+                df_heptads.to_csv(f"heptads_annotation/{pdb}_heptads_annotation.csv", sep="\t")
                 #df.at[i, "sequence"] = sequence
-                df.at[i, "sequence_length"] = seq_length
-                if len(positions) > 0:
-                    df.at[i, "heptads"] = "yes"
-                else:
-                    df.at[i, "heptads"] = "no"
-                df.at[i, "heptad_number"] = len(positions)
-                df.at[i, "heptad_positions"] = str(positions)
+                #df.at[i, "unique_chains"] = unique_chains
+                #df.at[i, "sequence_length"] = seq_length
+                #if len(positions) > 0:
+                 #   df.at[i, "heptads"] = "yes"
+                #else:
+                 #   df.at[i, "heptads"] = "no"
+                #df.at[i, "heptad_number"] = len(positions)
+                #df.at[i, "heptad_positions"] = str(positions)
                 ########################3# sr.compute(structure, level="S")
                 # print(round(structure.sasa,2))
                 # if hydrophobicCore:
@@ -181,19 +206,66 @@ for i in df.index:
                 #         df.at[i, "HC_net_charge"] = calculate_net_charge(hydrophobicCore)
                 #     except:
                 #         print(f"Error in {pdb}: impossible to calculate the net charge.")
-                try:
-                    heptadRepeats = bfactorToHeptadAnnotation(structure, pdb, positions, sequence)
-                    df.at[i, "heptad_repeats"] = ",".join(heptadRepeats)
-                except:
-                    print(f"Error in {pdb}: impossible to modify b-factors.")
+                # try:
+                #     heptadRepeats = bfactorToHeptadAnnotation(structure, pdb, positions, sequence)
+                #     df.at[i, "heptad_repeats"] = ",".join(heptadRepeats)
+                # except:
+                #     print(f"Error in {pdb}: impossible to modify b-factors.")
+                #     errors.write(f"{pdb}\nError in {pdb}: impossible to modify b-factors.\n")
+                #     traceback.print_exc(file=errors)
+                #     errors.write(f"\n\n")
             except:
                 print(f"Error in {pdb}: impossible to assign heptad repeats.")
+                errors.write(f"{pdb}\nError in {pdb}: impossible to assign heptad repeats.\n")
+                traceback.print_exc(file=errors)
+                errors.write(f"\n\n")
         except:
-            print("Error in {pdb}: impossible to calculate global net charge.")
+            print(f"Error in {pdb}: impossible to calculate global net charge.")
+            errors.write(f"{pdb}\nError in {pdb}: impossible to calculate global net charge.\n")
+            traceback.print_exc(file=errors)
+            errors.write(f"\n\n")
     except:
         print(f"Error: {pdb} PDB not found!")
-
-
-df.to_csv("output_descriptors.csv", sep="\t")
+        errors.write(f"{pdb}\nError: {pdb} PDB not found!\n")
+        traceback.print_exc(file=errors)
+        errors.write(f"\n\n")
 
 resultsHeptads.close()
+errors.close()
+
+final_variables = []
+for df_heptads in os.listdir(os.path.join(os.getcwd(),"heptads_annotation")):
+    df = pd.read_csv(f"heptads_annotation/{df_heptads}",sep="\t")
+    variables = df.columns.tolist()
+    print(variables)
+    for variable in variables:
+        print(variable)
+        if variable not in final_variables:
+            final_variables.append(variable)
+final_variables = sorted(final_variables)
+final_variables.remove("pdb")
+final_variables.remove("Unnamed: 0")
+final_variables.remove("net_charge")
+final_variables.remove("unique_chains")
+print(final_variables)
+print(len(final_variables))
+
+pdb_list = []
+net_charge = []
+unique_chains = []
+df_output = pd.DataFrame()
+for variable in final_variables:
+    vars(f"{variable}_list") = []
+    print(vars("{variable}_list"))
+
+for df_heptads in os.listdir(os.path.join(os.getcwd(),"heptads_annotation")):
+    df = pd.read_csv(f"heptads_annotation/{df_heptads}", sep="\t")
+    pdb_list.append(df.loc[0,"pdb"])
+    net_charge.append(df.loc[0, "net_charge"])
+    unique_chains.append(df.loc[0, "unique_chains"])
+    #for variable in final_variables:
+
+df_output["pdb"] = pdb_list
+df_output["net_charge"] = net_charge
+df_output["unique_chains"] = unique_chains
+print(df_output)

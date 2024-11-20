@@ -13,7 +13,6 @@
 import pandas as pd
 from math import sqrt, log
 from Bio.PDB import *
-from pymol.plugins.legacysupport import installPlugin
 
 parser = PDBParser(QUIET=True)
 from pymol import *
@@ -140,12 +139,13 @@ def calculate_residues_stickiness(df_pdb, pdb, oligomer):
         elif location == "surface":
             df_res.at[residue,"freq_surface"] = df_res.loc[residue,"freq_surface"]+1
     # Values to later generate a normalizing scale:
-    min_log = 0
-    max_log = 0
+    min_log = -1
+    max_log = +1
     for i,row in df_res.iterrows():
         if df_res.loc[i,"freq_interface"] != 0 and df_res.loc[i,"freq_surface"] !=0:
             log = (math.log(df_res.loc[i,"freq_interface"]/df_res.loc[i,"freq_surface"]))
             df_res.at[i,"log(freq_interface/freq_surface)"] = log
+            print(df_res.loc[i,"log(freq_interface/freq_surface)"])
         else:
             log = 0
         # Values to later generate a normalizing scale:
@@ -225,14 +225,17 @@ with open("./unprocessed_PDBs.txt","w") as file:
 cmd.quit()
 
 # Iterate through rASA output for each PDB file:
+df_list.set_index("pdb", inplace=True)
 for df_pdb in os.listdir(os.path.join(os.getcwd(), f"output_rASA_files")):
+    print(df_pdb)
     try:
         pdb = df_pdb[5:9]
-        df_list.set_index("pdb", inplace=True)
-        oligomer = df_list.loc[pdb,"oligomer"]
-        #oligomer = "" # For cases in which no previous oligomer classification has been made
+        #oligomer = df_list.loc[pdb,"oligomer"]
+        #print(oligomer)
+        oligomer = "" # For cases in which no previous oligomer classification has been made
         if not f"{pdb}_stickiness_scale.csv" in os.listdir(os.path.join(os.getcwd(), f"output_stickiness_scales")):
             # Calculate the stickiness scale for each PDB file:
             calculate_residues_stickiness(df_pdb, pdb, oligomer)
+            print("Finished")
     except:
         print(f"Error: the {df_pdb} file was not found.")

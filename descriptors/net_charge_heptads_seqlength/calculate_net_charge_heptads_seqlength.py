@@ -237,9 +237,7 @@ final_variables = []
 for df_heptads in os.listdir(os.path.join(os.getcwd(),"heptads_annotation")):
     df = pd.read_csv(f"heptads_annotation/{df_heptads}",sep="\t")
     variables = df.columns.tolist()
-    print(variables)
     for variable in variables:
-        print(variable)
         if variable not in final_variables:
             final_variables.append(variable)
 final_variables = sorted(final_variables)
@@ -247,25 +245,30 @@ final_variables.remove("pdb")
 final_variables.remove("Unnamed: 0")
 final_variables.remove("net_charge")
 final_variables.remove("unique_chains")
-print(final_variables)
-print(len(final_variables))
 
 pdb_list = []
 net_charge = []
 unique_chains = []
 df_output = pd.DataFrame()
 for variable in final_variables:
-    vars(f"{variable}_list") = []
-    print(vars("{variable}_list"))
+    globals()[f"{variable}"] = []
 
 for df_heptads in os.listdir(os.path.join(os.getcwd(),"heptads_annotation")):
     df = pd.read_csv(f"heptads_annotation/{df_heptads}", sep="\t")
+    columns = df.columns.tolist()
     pdb_list.append(df.loc[0,"pdb"])
     net_charge.append(df.loc[0, "net_charge"])
     unique_chains.append(df.loc[0, "unique_chains"])
-    #for variable in final_variables:
-
+    for variable in final_variables:
+        if variable in columns:
+            globals()[f"{variable}"].append(df.loc[0,f"{variable}"])
+        else:
+            globals()[f"{variable}"].append(" ")
 df_output["pdb"] = pdb_list
 df_output["net_charge"] = net_charge
 df_output["unique_chains"] = unique_chains
+for variable in final_variables:
+    df_output[f"{variable}"] = globals()[f"{variable}"]
 print(df_output)
+
+df_output.to_csv("output_descriptors.csv", sep="\t")

@@ -78,6 +78,8 @@ def assign_heptads(pdb):
         i = 0
         if ">" not in line:
             seq = line
+            seq_length = int(len(seq))
+            print(seq_length)
             while i < (len(seq)):
                 if seq[i] == "X":
                     i+=1
@@ -96,7 +98,7 @@ def assign_heptads(pdb):
         #     if ele == "a" or ele == "d":
         #         pos = heptads.index(ele)
         #         hydrophobicResidues = hydrophobicResidues+seq[pos]
-            return seq, positions#, hydrophobicResidues
+            return seq, positions, seq_length#, hydrophobicResidues
     fasta_file.close()
 
 
@@ -162,8 +164,9 @@ for i in df.index:
             try: # Assign heptad repeats
                 structure = parser.get_structure(pdb,ent_file)
                 print(f"\n{pdb}")
-                sequence, positions = assign_heptads(pdb)
+                sequence, positions, seq_length = assign_heptads(pdb)
                 #df.at[i, "sequence"] = sequence
+                df.at[i, "sequence_length"] = seq_length
                 if len(positions) > 0:
                     df.at[i, "heptads"] = "yes"
                 else:

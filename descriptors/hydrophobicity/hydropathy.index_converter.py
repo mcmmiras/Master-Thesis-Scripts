@@ -1,5 +1,5 @@
 # !/usr/bin/env python
-
+import os
 # Usage: python script.py pdb(name) pdb(file) hydrophobicity.scale(s)
 # Available scales (the scale name must be introduced as described):	(---- recommended for alpha-helices)
 	# ----kyte_doolittle: for identifying both hydrophobic surface-exposed regions as well as transmembrane regions. Regions with a positive value are hydrophobic.
@@ -19,6 +19,9 @@ from Bio.PDB import *
 parser = PDBParser()
 import matplotlib.pyplot as plt
 import random
+import os
+import subprocess
+import pandas as pd
 
 
 # DICTIONARIES (HYDROPHOBICITY SCALES):
@@ -261,6 +264,7 @@ def graphic_generation(pdb_file, ax, scale_name):
 	ax.set_xlabel("Residues")
 	ax.set_ylabel(f"Hydropathic index")
 	ax.set_ylim(0,100)
+	return hydropathy_score
 
 def all_converter(pdb_file):
 	fig, axes = plt.subplots(nrows=4, ncols=2, figsize=(12, 10))
@@ -288,30 +292,46 @@ def all_converter(pdb_file):
 # Hydrophobicity scale that will be applied to the pdb(file):
 hydrophobicity_scale = sys.argv[3]
 # PDB file taken and parsed:
-pdb_name = sys.argv[1]
-pdb_file = sys.argv[2]
-pdb_file = parser.get_structure(pdb_name, pdb_file)
-
+pdb_files = sys.argv[2]
+pdb_files = pd.read_csv(pdb_files, sep="\t")
+fullPDB = sys.argv[1]
+if not "output" in os.listdir(os.getcwd()):
+	subprocess.run("mkdir output/", shell=True)
+file = open("hydrophobicity_scores.csv","w")
+file.write(f"pdb\thydrophobicity_score\n")
 
 # CONVERSIONS:
 if hydrophobicity_scale == 'all':
 	# Conversion to a 0-100 scale and bfactors conversion into hydrophobic indexes for all available scales_
-	all_converter(pdb_file)
+	for i in pdb_files.index:
+		pdb_name = pdb_files.loc[i, "pdb"]
+		print(pdb_name)
+		ent_file = os.path.join(fullPDB, f"pdb{pdb_name}.ent")
+		print(ent_file)
+		pdb_file = parser.get_structure(pdb_name, ent_file)
+		all_converter(pdb_file)
 else:
 	# Conversion to a 0-100 scale:
 	converted_scale = hydrophobicity_converter(eval(hydrophobicity_scale))
-	# bfactors conversion into hydrophobic indexes:
-	bfactors_converter(pdb_file, converted_scale)
-	# SAVING RESULTS:
-	# Save the modified structure to a new PDB file:
-	io = PDBIO()
-	io.set_structure(pdb_file)
-	io.save(f"modified_{pdb_name}_{hydrophobicity_scale}.pdb")
-	# Obtention of the coordinates for graphical representation:
-	fig, ax = plt.subplots()
-	graphic_generation(pdb_file, ax, hydrophobicity_scale)
-	plt.savefig(f"hydropathy_{pdb_name}_{hydrophobicity_scale}.png")
-	plt.show()
+	for i in pdb_files.index:
+		pdb_name = pdb_files.loc[i, "pdb"]
+		print(pdb_name)
+		ent_file = os.path.join(fullPDB, f"pdb{pdb_name}.ent")
+		print(ent_file)
+		pdb_file = parser.get_structure(pdb_name, ent_file)
+		# bfactors conversion into hydrophobic indexes:
+		bfactors_converter(pdb_file, converted_scale)
+		# SAVING RESULTS:
+		# Save the modified structure to a new PDB file:
+		io = PDBIO()
+		io.set_structure(pdb_file)
+		io.save(f"output/modified_{pdb_name}_{hydrophobicity_scale}.pdb")
+		# Obtention of the coordinates for graphical representation:
+		fig, ax = plt.subplots()
+		hydrophobicity_score = graphic_generation(pdb_file, ax, hydrophobicity_scale)
+		plt.savefig(f"output/hydropathy_{pdb_name}_{hydrophobicity_scale}.png")
+		#plt.show()
+		file.write(f"{pdb_name}\t{hydrophobicity_score}\n")
 
 
 print("Your plot with the hydropathy profile of your structure has been generated successfully.")

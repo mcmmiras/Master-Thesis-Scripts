@@ -271,4 +271,8 @@ for variable in final_variables:
     df_output[f"{variable}"] = globals()[f"{variable}"]
 print(df_output)
 
+hydrophobicity_file = pd.read_csv("/home/mari/Documentos/testing_master/hydrophobicity/hydrophobicity_scores.csv",sep="\t")
+for i in hydrophobicity_file.index:
+    df_output.at[i,"hydrophobicity_score"] = hydrophobicity_file.loc[i,"hydrophobicity_score"]
+
 df_output.to_csv("output_descriptors.csv", sep="\t")

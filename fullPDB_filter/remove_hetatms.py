@@ -4,6 +4,8 @@
 
 import os
 import sys
+from urllib.parse import non_hierarchical
+
 import pandas as pd
 import subprocess
 import traceback
@@ -57,3 +59,8 @@ for pdb in pdb_list.index:
             traceback.print_exc(file=error)
             error.write(f"\n")
 
+error.close()
+non_modified.close()
+modified.close()
+discarded.close()
+selected.close()

@@ -12,9 +12,7 @@ import traceback
 
 # ARGUMENTS:
 pdb_list = sys.argv[2]
-pdb_list = pd.read_csv(pdb_list, sep="\t", header=None)
-pdb_list = pdb_list.set_index(pdb_list[0])
-print(pdb_list)
+pdb_list = pd.read_csv(pdb_list, sep="\t", header=0)
 fullPDB = sys.argv[1]
 option = sys.argv[3]
 
@@ -33,7 +31,8 @@ if option == "remove":
         subprocess.run(f"mkdir modified_PDBs/" , shell=True)
 
 # EXECUTION:
-for pdb in pdb_list.index:
+for i in pdb_list.index:
+    pdb = pdb_list["pdb"][i]
     ent_file = os.path.join(fullPDB,f"pdb{pdb}.ent")
     if option == "filter":
         try:
@@ -59,8 +58,11 @@ for pdb in pdb_list.index:
             traceback.print_exc(file=error)
             error.write(f"\n")
 
-error.close()
-non_modified.close()
-modified.close()
-discarded.close()
-selected.close()
+try:
+    error.close()
+    non_modified.close()
+    modified.close()
+    discarded.close()
+    selected.close()
+except:
+    pass

@@ -23,6 +23,7 @@
 # LIBRARY IMPORTATION:
 import subprocess
 import sys
+import traceback
 import pandas as pd
 import os
 
@@ -37,10 +38,12 @@ pdb_list = pdb_list[0].tolist()
 
 
 # OUTPUT FILES:
-confirmedCC = open("socket_validated_coiled_coils.txt", "w")
-notCC = open("socket_validated_NOT_coiled_coils.txt", "w")
-unclassified = open("socket_unclassified.txt","w")
-errorPDB = open("socket_ERROR.txt", "w")
+confirmedCC = open(f"socket_validated_coiled_coils.txt", "w")
+output = open(f"output_cc_annotation.txt", "w")
+output.write(f"pdb\tcoiled_coils\tcc_number\n")
+notCC = open(f"socket_validated_NOT_coiled_coils.txt", "w")
+unclassified = open(f"socket_unclassified.txt","w")
+errorPDB = open(f"socket_ERROR.txt", "w")
 
 # DIRECTORIES CREATION:
 dir = os.getcwd()
@@ -63,20 +66,28 @@ def analysis(ent, dssp, out): # Faltaría final_dssp,
 for pdb in pdb_list:
     try:
         counter += 1
-        ent_file = f"{fullPDB}{pdb}.ent"
-        dssp_file = f"./output_dssp_files/{pdb}.dssp"
+        ent_file = f"{fullPDB}pdb{pdb}.ent"
+        dssp_file = f"output_dssp_files/{pdb}.dssp"
         #final_dssp_file = "cut_" + dssp_file
-        out_file = f"./output_socket_files/result_{pdb}.out"
+        out_file = f"output_socket_files/result_{pdb}.out"
         try:
             analysis(ent_file, dssp_file, out_file)
             with open(out_file,"r") as result:
                 result = result.read()
                 if "0 result NO COILED COILS" in result:
                     notCC.write(f"{pdb}\n")
+                    output.write(f"{pdb}\tno\t0\n")
                 elif "COILED COILS PRESENT" in result:
+                    numberCC = subprocess.run(f"grep 'COILED COILS PRESENT' {out_file} | cut -c25-30", shell=True,
+                                              capture_output=True, text=True)
+                    numberCC = numberCC.stdout.strip()
+                    numberCC = numberCC.split(" ")[0]
+                    output.write(f"{pdb}\tyes\t{numberCC}\n")
                     confirmedCC.write(f"{pdb}\n")
+
                 else:
                     unclassified.write(f"{pdb}\n")
+                    output.write(f"{pdb}\tunclassified\t\n")
             print(f"{pdb} has been classified. Structure number: {counter}.\n\n")
         except:
             print(f"Error in {pdb}: SOCKET cannot compute analysis.")
@@ -88,3 +99,4 @@ confirmedCC.close()
 notCC.close()
 unclassified.close()
 errorPDB.close()
+output.close()

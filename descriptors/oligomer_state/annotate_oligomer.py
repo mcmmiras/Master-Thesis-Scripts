@@ -56,11 +56,23 @@ for i in pdb_list.index:
         for state in oligomerization_states.keys():
             if state.upper() in result:
                 oligomer = oligomerization_states[state]
+                pdb_list.at[i, "determination"] = "author"
                 pdb_list.at[i, "oligomer"] = oligomer
+                pdb_list.at[i, "oligomer_str"] = state
     except:
-        non_annotated.write(f"{pdb}\n")
-        oligomer=""
-        #pdb_list.at[i, "oligomer"] = ""
+        try:
+            result = subprocess.check_output(f"grep 'SOFTWARE DETERMINED QUATERNARY STRUCTURE:' {ent_file}", shell=True)
+            result = str(result)
+            for state in oligomerization_states.keys():
+                if state.upper() in result:
+                    oligomer = oligomerization_states[state]
+                    pdb_list.at[i,"determination"] = "software"
+                    pdb_list.at[i, "oligomer"] = oligomer
+                    pdb_list.at[i, "oligomer_str"] = state
+        except:
+            non_annotated.write(f"{pdb}\n")
+            oligomer=""
+            #pdb_list.at[i, "oligomer"] = ""
 
 non_annotated.close()
 pdb_list.to_csv("annotated_chains_oligomer.csv",sep="\t")

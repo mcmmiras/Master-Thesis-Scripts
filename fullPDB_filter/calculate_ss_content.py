@@ -10,6 +10,7 @@ from Bio.PDB import *
 parser = PDBParser(QUIET = True)
 import numpy
 from math import sqrt
+import pandas as pd
 
 
 # ARGUMENTS:
@@ -97,36 +98,42 @@ def calculateHelicalContent(distances_list, pdb):
 
 
 # RUNNING SCRIPT
+file = open("pre_ss_annotation.txt","r")
+df = pd.read_csv(file, sep='\t', header=(0))
+listrepeat = df.iloc[:,0].values.tolist()
 # Iteration over a PDB list:
 for pdb in pdb_list:
-    counter += 1
-    ent_file = f"{fullPDB}{pdb}.ent"
-    try:
-        structure = parser.get_structure(pdb, ent_file)
-        for model in structure:
-            for chain in model:
-                for residue in chain:
-                    atoms = residue.get_atoms()
-                    atoms_list = {atom.get_name() for atom in atoms}
-                    if all(name in atoms_list for name in ["N", "CA", "C", "O"]):
-                        ca.append(residue["CA"])
-                        x, y, z = residue["CA"].get_coord()
-                        x_ca.append(x)
-                        y_ca.append(y)
-                        z_ca.append(z)
-                        oxi.append(residue["O"])
-                        x, y, z = residue["O"].get_coord()
-                        x_oxi.append(x)
-                        y_oxi.append(y)
-                        z_oxi.append(z)
-                    atoms_list.clear()
-        x_centroidCA, y_centroidCA, z_centroidCA = calculateCentroids(ca, x_ca, y_ca, z_ca)
-        x_centroidOxi, y_centroidOxi, z_centroidOxi = calculateCentroids(oxi, x_oxi, y_oxi, z_oxi)
-        euclidean_distances = calculateDistances(x_centroidCA, y_centroidCA, z_centroidCA, x_centroidOxi, y_centroidOxi, z_centroidOxi)
-        calculateHelicalContent(euclidean_distances, pdb)
-        print(f"{pdb} has been classified. Structure number: {counter}.")
-    except:
-        print(f"Error: {pdb} PDB not found! Located in line {counter}.")
+    if pdb not in listrepeat:
+        print("NEW PDB")
+        counter += 1
+        ent_file = f"{fullPDB}pdb{pdb}.ent"
+        print(ent_file)
+        try:
+            structure = parser.get_structure(pdb, ent_file)
+            for model in structure:
+                for chain in model:
+                    for residue in chain:
+                        atoms = residue.get_atoms()
+                        atoms_list = {atom.get_name() for atom in atoms}
+                        if all(name in atoms_list for name in ["N", "CA", "C", "O"]):
+                            ca.append(residue["CA"])
+                            x, y, z = residue["CA"].get_coord()
+                            x_ca.append(x)
+                            y_ca.append(y)
+                            z_ca.append(z)
+                            oxi.append(residue["O"])
+                            x, y, z = residue["O"].get_coord()
+                            x_oxi.append(x)
+                            y_oxi.append(y)
+                            z_oxi.append(z)
+                        atoms_list.clear()
+            x_centroidCA, y_centroidCA, z_centroidCA = calculateCentroids(ca, x_ca, y_ca, z_ca)
+            x_centroidOxi, y_centroidOxi, z_centroidOxi = calculateCentroids(oxi, x_oxi, y_oxi, z_oxi)
+            euclidean_distances = calculateDistances(x_centroidCA, y_centroidCA, z_centroidCA, x_centroidOxi, y_centroidOxi, z_centroidOxi)
+            calculateHelicalContent(euclidean_distances, pdb)
+            print(f"{pdb} has been classified. Structure number: {counter}.")
+        except:
+            print(f"Error: {pdb} PDB not found! Located in line {counter}.")
 
 # Closing used files:
 helices.close()

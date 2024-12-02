@@ -23,7 +23,7 @@ dir = os.getcwd()
 if f"{option}_helix_extractions" not in os.listdir(dir):
     subprocess.run(f"mkdir {option}_helix_extractions", shell=True)
     subprocess.run(f"mkdir {option}_helix_extractions/helices_{option}_output", shell=True)
-
+helices_annotation = pd.DataFrame(columns=["pdb","helix_number","helix_length"])
 
 # LISTS:
 atoms_list = list()
@@ -81,6 +81,8 @@ def calculateDistances(xCA, yCA, zCA, xOxi, yOxi, zOxi):
 def calculateHelicalContent(distances_list, resnames, respos, chains,pdb):
     counter = 0
     prev_chain = "A"
+    helix_total = 0
+    lengths = list()
     try:
         prev_position = int(respos[0])-1
     except:
@@ -94,20 +96,25 @@ def calculateHelicalContent(distances_list, resnames, respos, chains,pdb):
                     counter = 1
                     prev_chain = chain
                     prev_position = int(respos[i])-1
+                if counter == 1:
+                    helix_total += 1
+                    lengths.append(int(prev_position))
                 helices.write(f"{respos[i]}\t{resnames[i]}\t{chain}\t{ss}\t{counter}\n")
             elif (1.39-0.24) <= distances_list[i] <= (1.39+0.24):
                 ss = "E"
                 counter = 0
                 #helices.write(f"{respos[i]}\t{resnames[i]}\t{chain[i]}\t{ss}\n")
+
             else:
                 ss = "C"
                 counter = 0
                 #helices.write(f"{respos[i]}\t{resnames[i]}\t{chain[i]}\t{ss}\n")
+
             prev_position += 1
         except:
             helices.write(f"{respos[i]}\t{resnames[i]}\t{chain}\t \t \n")
-
-
+        helices.write(f"\nTotal number of helices: {helix_total}.\n")
+    return helix_total, lengths
 
 
 # EXECUTION:
@@ -119,26 +126,49 @@ for i in pdb_list.index:
     counter += 1
     if option == "pdb":
         with open(ent_file, "r") as file:
+            total_helices = 0
             file = file.read()
             pattern = r"HELIX..........................................................................."
             for match in re.finditer(pattern, file):
+                total_helices += 1
+                helices_annotation.at[total_helices-1, "helix_number"] = total_helices
                 line = match.group()
-                pattern = r"... . ....  ... . .... ..                                  ..    "
-                match2 = re.search(pattern,line)
-                match2 = match2.group()
-                resS = (re.search(r"...", match2)).group()
-                resE = ((re.search(r"  \S\S\S", match2)).group()).split(" ")[1]
-                chainS = ((re.search(r" .", match2)).group()).split(" ")[1]
-                chainE = (((re.search(r" \S\S\S .", match2)).group()).split(" ")[1]).split(" ")[0]
-                print(resE)
-                resposS = ((re.search(r"  ...", match2)).group()).split(" ")[1]
-                resposE = (((re.search(r"   ..  . ", match2)).group()).split(" ")[1]).split(" ")[0]
-                length = ((re.search(r"                                ....", match2)).group()).split(" ")[1]
-                helices.write(f"{resposS}\t{resS}\t{chainS}\t{resposE}\t{resE}\t{chainE}\t{length}\n")
+                helices.write(f"{line}\n")
+                pattern = r"                                ...."
+                match = re.search(pattern,line)
+                helix_length = match.group()
+                helices_annotation.at[total_helices-1,"helix_length"] = helix_length
+                helices_annotation.at[total_helices-1,"pdb"] = pdb
+            helices_annotation.to_csv(f"{option}_{pdb}_helices_annotation.csv", sep="\t")
+            helices_annotation.drop(helices_annotation.index, inplace=True)
+            # Annotating each helix number:
+            # Annotating each helix length:
+            # pattern = r"... . ....  ... . .... ..                                  ..    "
+            # match2 = re.search(pattern,line)
+            # match2 = match2.group()
+            # resS = (re.search(r"...", match2)).group()
+            # resE = ((re.search(r"  \S\S\S", match2)).group()).split(" ")[1]
+            # chainS = ((re.search(r" .", match2)).group()).split(" ")[1]
+            # chainE = (((re.search(r" \S\S\S .", match2)).group()).split(" ")[1]).split(" ")[0]
+            # resposS = (((re.search(r"  ...  ", match2)).group()).split(" ")[1]).split(" ")[0]
+            # resposE = (((re.search(r"  ...  . ", match2)).group()))
+            # length = ((re.search(r"                                ....", match2)).group()).split(" ")[1]
+            # print(resposE)
+            # helices.write(f"{resposS}\t{resS}\t{chainS}\t{resposE}\t{resE}\t{chainE}\t{length}\n")
+
+            #helices_annotation.at[n+total_helices-1, "total_helices"] = total_helices
+
+
+
+            # Annotating total number of helices:
+            print(total_helices)
             helices.close()
+
             print(f"{pdb} has been annotated. Structure number: {counter}.")
 
     if option == "dssp":
+        helices_list = 1
+        matches_list = list()
         if not f"dssp_output" in os.listdir(os.path.join(dir,"dssp_helix_extractions")):
             subprocess.run(f"mkdir dssp_helix_extractions/dssp_output", shell=True)
         dssp_file = f"dssp_helix_extractions/dssp_output/{pdb}.dssp"
@@ -146,13 +176,30 @@ for i in pdb_list.index:
             subprocess.run("mkdssp -v " + ent_file + " " + dssp_file, shell=True)
         print(f"{pdb.upper()}'s dssp file has been generated.\n")
         with open(dssp_file, "r") as dssp:
+            print(pdb)
             dssp = dssp.read()
             pattern = (r".....  ... . .  H....................................................................."
                        r"..................................................")
             for match in re.finditer(pattern, dssp):
                 line = match.group()
-                print(line)
+                #print(line)
                 helices.write(f"{line}\n")
+                pattern = r".........."
+                search = re.search(pattern,line)
+                match = search.group()
+                match = match.split(" ")[4]
+                print(match)
+                matches_list.append(match)
+            while ("" in matches_list):
+                matches_list.remove("")
+            matches_list = np.array(matches_list).astype(int)
+            for i in range(1,len(matches_list)):
+                if matches_list[i] != int((matches_list[i-1])+1):
+                    helices_list += 1
+            #for index in range(0,len(helices_list)):
+             #   helices_annotation.at[index, "pdb"] = pdb
+              #  helices_annotation.at[index, "helix_number"] = index
+                #helices_annotation.at[index, "helix_length"] = length
             helices.close()
             print(f"{pdb} has been annotated. Structure number: {counter}.")
 
@@ -190,8 +237,16 @@ for i in pdb_list.index:
         x_centroidCA, y_centroidCA, z_centroidCA = calculateCentroids(ca, x_ca, y_ca, z_ca)
         x_centroidOxi, y_centroidOxi, z_centroidOxi = calculateCentroids(oxi, x_oxi, y_oxi, z_oxi)
         euclidean_distances = calculateDistances(x_centroidCA, y_centroidCA, z_centroidCA, x_centroidOxi, y_centroidOxi, z_centroidOxi)
-        calculateHelicalContent(euclidean_distances, residuesName_list, residuesPosition_list, chain_list,pdb)
+        helix_total, lengths = calculateHelicalContent(euclidean_distances, residuesName_list, residuesPosition_list, chain_list,pdb)
+        for helix in range(0,helix_total):
+            helices_annotation.at[helix, "pdb"] = pdb
+            length = lengths[helix]
+            helices_annotation.at[helix, "helix_number"] = helix+1
+            helices_annotation.at[helix, "helix_length"] = length
+        print(helices_annotation)
         print(f"{pdb} has been annotated. Structure number: {counter}.")
+        helices_annotation.to_csv(f"{option}_{pdb}_helices_annotation.csv", sep="\t")
+        helices_annotation.drop(helices_annotation.index, inplace=True)
         ca.clear(); x_ca.clear(); y_ca.clear(); z_ca.clear(); oxi.clear(); x_oxi.clear(); y_oxi.clear(); z_oxi.clear()
         euclidean_distances.clear(); residuesName_list.clear(); residuesPosition_list.clear(); chain_list.clear()
         #except:

@@ -38,6 +38,7 @@ for ele in os.listdir(fullPDB):
             is_protein = False
             is_na = False
             is_other = False
+            chains_revised = list()
             # Firstly, a separation between experimental method: we select those obtained with x-ray diffraction:
             if "x-ray" in header["structure_method"]:
                 pdb_in = iotbx.pdb.hierarchy.input(file_name=ent_file)
@@ -45,13 +46,15 @@ for ele in os.listdir(fullPDB):
                 for chain in pdb_in.hierarchy.only_model().chains():
                     if chain.is_protein():
                         is_protein = True
+                        chains_revised.append("protein")
                     elif chain.is_na():
                         is_na = True
-                if is_protein:
+                        chains_revised.append("na")
+                if "na" not in chains_revised:
                     results_file.write(f"{pdb}\n")
-                elif is_na:
+                elif "na" in chains_revised:
                     XRAY_DNA_RNA.write(f"{pdb}\n")
-                elif is_other:
+                else:
                     unclassified.write(f"{pdb}\n")
             else:
                 notXRAY_file.write(f"{pdb}\n")

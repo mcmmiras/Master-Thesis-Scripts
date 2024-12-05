@@ -12,6 +12,7 @@ from Bio.PDB import *
 parser = PDBParser(QUIET = True)
 import numpy
 from math import sqrt
+from pymol import *
 
 
 # ARGUMENTS:
@@ -80,25 +81,30 @@ def calculateDistances(xCA, yCA, zCA, xOxi, yOxi, zOxi):
 #   - A structure will be considered mainly helical if it contains a minimum of a 75% of helices.
 def calculateHelicalContent(distances_list, resnames, respos, chains,pdb):
     counter = 0
-    prev_chain = "A"
+    counter_nondistances = 0
+    prev_chain = chains[0]
     helix_total = 0
     lengths = list()
-    try:
-        prev_position = int(respos[0])-1
-    except:
-        print(f"Error in {pdb}")
-    for i, chain in enumerate(chains):
+    helix_res_list = list()
+    for i, pos in enumerate(respos):
         try:
             if (1.7) <= distances_list[i] <= (2.7):
+                last_helix_res = pos
                 ss = "H"
                 counter += 1
-                if chain != prev_chain or int(respos[i]) != prev_position+1:
-                    counter = 1
-                    prev_chain = chain
-                    prev_position = int(respos[i])-1
+                helix_res_list.append(pos)
+                print(helix_res_list)
+                print("                        ")
                 if counter == 1:
                     helix_total += 1
-                    lengths.append(int(prev_position))
+                    lengths.append(len(helix_res_list))
+                    helix_res_list.clear()
+                if chains[i] != prev_chain or pos != last_helix_res:
+                    counter = 1
+                    prev_chain = chain[i]
+                if not distances_list[i]:
+                    ss = "H"
+                    counter += 1
                 helices.write(f"{respos[i]}\t{resnames[i]}\t{chain}\t{ss}\t{counter}\n")
             elif (1.39-0.24) <= distances_list[i] <= (1.39+0.24):
                 ss = "E"
@@ -109,11 +115,12 @@ def calculateHelicalContent(distances_list, resnames, respos, chains,pdb):
                 ss = "C"
                 counter = 0
                 #helices.write(f"{respos[i]}\t{resnames[i]}\t{chain[i]}\t{ss}\n")
-
-            prev_position += 1
         except:
-            helices.write(f"{respos[i]}\t{resnames[i]}\t{chain}\t \t \n")
-        helices.write(f"\nTotal number of helices: {helix_total}.\n")
+            counter_nondistances += 1
+            helices.write(f"{respos[i]}\t{resnames[i]}\t{chain}\tH\t{counter_nondistances}\n")
+    helix_total += 1
+    lengths.append(counter_nondistances)
+    helices.write(f"\nTotal number of helices: {helix_total}.\n")
     return helix_total, lengths
 
 
@@ -123,48 +130,41 @@ for i in pdb_list.index:
     pdb = pdb_list["pdb"][i]
     ent_file = os.path.join(fullPDB,f"pdb{pdb}.ent")
     helices = open(f"{option}_helix_extractions/helices_{option}_output/helices_{pdb}.txt", "w")
+    errors = open(f"{option}_helix_extractions/errors_{option}.txt", "w")
     counter += 1
     if option == "pdb":
-        with open(ent_file, "r") as file:
-            total_helices = 0
-            file = file.read()
-            pattern = r"HELIX..........................................................................."
-            for match in re.finditer(pattern, file):
-                total_helices += 1
-                helices_annotation.at[total_helices-1, "helix_number"] = total_helices
-                line = match.group()
-                helices.write(f"{line}\n")
-                pattern = r"                                ...."
-                match = re.search(pattern,line)
-                helix_length = match.group()
-                helices_annotation.at[total_helices-1,"helix_length"] = helix_length
-                helices_annotation.at[total_helices-1,"pdb"] = pdb
-            helices_annotation.to_csv(f"{option}_{pdb}_helices_annotation.csv", sep="\t")
-            helices_annotation.drop(helices_annotation.index, inplace=True)
-            # Annotating each helix number:
-            # Annotating each helix length:
-            # pattern = r"... . ....  ... . .... ..                                  ..    "
-            # match2 = re.search(pattern,line)
-            # match2 = match2.group()
-            # resS = (re.search(r"...", match2)).group()
-            # resE = ((re.search(r"  \S\S\S", match2)).group()).split(" ")[1]
-            # chainS = ((re.search(r" .", match2)).group()).split(" ")[1]
-            # chainE = (((re.search(r" \S\S\S .", match2)).group()).split(" ")[1]).split(" ")[0]
-            # resposS = (((re.search(r"  ...  ", match2)).group()).split(" ")[1]).split(" ")[0]
-            # resposE = (((re.search(r"  ...  . ", match2)).group()))
-            # length = ((re.search(r"                                ....", match2)).group()).split(" ")[1]
-            # print(resposE)
-            # helices.write(f"{resposS}\t{resS}\t{chainS}\t{resposE}\t{resE}\t{chainE}\t{length}\n")
-
-            #helices_annotation.at[n+total_helices-1, "total_helices"] = total_helices
-
-
-
-            # Annotating total number of helices:
-            print(total_helices)
-            helices.close()
-
-            print(f"{pdb} has been annotated. Structure number: {counter}.")
+        try:
+            if not "modified_PDBs" in os.listdir(os.path.join(dir,"pdb_helix_extractions")):
+                subprocess.run(f"mkdir pdb_helix_extractions/modified_PDBs/", shell=True)
+            if not "helices_summary" in os.listdir(os.path.join(dir, "pdb_helix_extractions")):
+                subprocess.run(f"mkdir pdb_helix_extractions/helices_summary/", shell=True)
+            with open(ent_file, "r") as file:
+                total_helices = 0
+                file = file.read()
+                pattern = r"HELIX..........................................................................."
+                for match in re.finditer(pattern, file):
+                    total_helices += 1
+                    helices_annotation.at[total_helices-1, "helix_number"] = total_helices
+                    line = match.group()
+                    helices.write(f"{line}\n")
+                    pattern = r"                                ...."
+                    match = re.search(pattern,line)
+                    helix_length = match.group()
+                    helices_annotation.at[total_helices-1,"helix_length"] = helix_length
+                    helices_annotation.at[total_helices-1,"pdb"] = pdb
+                helices_annotation.to_csv(f"pdb_helix_extractions/helices_summary/{option}_{pdb}_helices_annotation.csv", sep="\t")
+                helices_annotation.drop(helices_annotation.index, inplace=True)
+                cmd.load(ent_file)
+                cmd.select("helices","ss h")
+                cmd.save(f"./pdb_helix_extractions/modified_PDBs/{pdb}_onlyhelix.pdb", f"helices")  # Output with the split chain
+                cmd.delete("all")
+                # Annotating total number of helices:
+                print(total_helices)
+                helices.close()
+                print(f"{pdb} has been annotated. Structure number: {counter}.")
+        except:
+            errors.write(f"{pdb} could not be processed. Structure number: {counter}.")
+    errors.close()
 
     if option == "dssp":
         helices_list = 1
@@ -238,12 +238,12 @@ for i in pdb_list.index:
         x_centroidOxi, y_centroidOxi, z_centroidOxi = calculateCentroids(oxi, x_oxi, y_oxi, z_oxi)
         euclidean_distances = calculateDistances(x_centroidCA, y_centroidCA, z_centroidCA, x_centroidOxi, y_centroidOxi, z_centroidOxi)
         helix_total, lengths = calculateHelicalContent(euclidean_distances, residuesName_list, residuesPosition_list, chain_list,pdb)
+        print(pdb, len(lengths), helix_total)
         for helix in range(0,helix_total):
             helices_annotation.at[helix, "pdb"] = pdb
             length = lengths[helix]
             helices_annotation.at[helix, "helix_number"] = helix+1
             helices_annotation.at[helix, "helix_length"] = length
-        print(helices_annotation)
         print(f"{pdb} has been annotated. Structure number: {counter}.")
         helices_annotation.to_csv(f"{option}_{pdb}_helices_annotation.csv", sep="\t")
         helices_annotation.drop(helices_annotation.index, inplace=True)
@@ -251,4 +251,4 @@ for i in pdb_list.index:
         euclidean_distances.clear(); residuesName_list.clear(); residuesPosition_list.clear(); chain_list.clear()
         #except:
         #print(f"Error: {pdb} PDB not found! Located in line {counter}.")
-
+cmd.quit()

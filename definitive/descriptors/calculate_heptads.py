@@ -15,6 +15,7 @@ import re
 from Bio.SeqUtils import seq1
 import traceback
 import numpy as np
+import math
 
 
 # ARGUMENTS:
@@ -175,6 +176,7 @@ def assignEnvironmentHydrophobicity(seq, initial_pos):
 # Iteration through all the PDBs list:
 counter = 0
 errors_num = 0
+arrays_lists = []
 for i in df.index:
     counter += 1
     try: # Obtain PDB from list
@@ -200,23 +202,29 @@ for i in df.index:
             df_results.at[i, "initial_heptad"] = str(best_heptad)
             df_results.at[i, "initial_pos"] = str(best_heptad_pos)
             sequence_array = []
+            scores_hydrophobicity_array = []
             print(f"Whole sequence without unknown residues: {sequence}")
-            for resi in sequence[best_heptad_pos:]:
-                sequence_array.append(resi)
+            total_heptads = math.floor((len(sequence[best_heptad_pos:])/7))
+            for i in range(0, total_heptads*7):
+                sequence_array.append(sequence[best_heptad_pos:][i])
+                scores_hydrophobicity_array.append(scores_hydrophobicity[i])
             sequence_array = np.array(sequence_array)
-            scores_hydrophobicity_array = np.array(scores_hydrophobicity)
+            scores_hydrophobicity_array = np.array(scores_hydrophobicity_array)
             df_results.at[i, "sequence_array"] = str(sequence_array)
-            df_results.at[i, "hydrophobicity_array"] = str(scores_hydrophobicity)
+            df_results.at[i, "hydrophobicity_array"] = str(scores_hydrophobicity_array)
+            arrays_lists.append(scores_hydrophobicity_array)
             array_generation.write(
                 f"\n{pdb.upper()}\n"
                 f"Whole sequence without unknown residues: {sequence}\n"
                 f"Most canonical-like heptad is '{best_heptad}' starting at position {best_heptad_pos+1} of the sequence.\n"
+                f"Total found heptads: {total_heptads}.\n"
                 f"Array of analyzed residues:\n{sequence_array}\n"
                 f"Array of calculated hydrophobicity values:\n{scores_hydrophobicity_array}\n"
                 f"Analyzed sequence array length: {len(sequence_array)}\n"
                 f"Calculated values array length: {len(scores_hydrophobicity_array)}\n"
             )
             print(f"Most canonical-like heptad is '{best_heptad}' starting at position {best_heptad_pos+1} of the sequence.")
+            print(f"Total found heptads: {total_heptads}.")
             print(f"Array of analyzed residues:\n{sequence_array}")
             print(f"Array of calculated hydrophobicity values:\n{scores_hydrophobicity_array}")
             print(f"Analyzed sequence array length: {len(sequence_array)}\n"
@@ -233,6 +241,92 @@ for i in df.index:
         traceback.print_exc()
         print(f"Error in {pdb.upper()}. Could not process structure number {counter}.")
 
+# CONVERT ALL DATA TO SAME LENGTH INPUTS:
+arrays_lists = [array.tolist() for array in arrays_lists]
+arrays_lists_length = [len(array) for array in arrays_lists]
+arrays_mean = sum(arrays_lists_length) / len(arrays_lists_length)
+if round(arrays_mean)%7 == 0:
+    arrays_mean = round(arrays_mean)
+else:
+    arrays_mean = math.floor(arrays_mean)
+larger = 0
+for i in arrays_lists_length:
+    if i > arrays_mean:
+        diff = math.ceil(i/arrays_mean)
+        print(f"added rows: {diff-1}")
+        larger += diff-1
+normalization = np.zeros([len(arrays_lists_length)+larger, arrays_mean])
+print(normalization)
+print(normalization.shape)
+row_displacement = 0
+"""
+for row, array in enumerate(arrays_lists):
+    print(row)
+    if len(array) == arrays_mean:
+        normalization[int(row + row_displacement), :] = array
+    elif len(array) < arrays_mean:
+        padding = (arrays_mean - len(array)) // 2
+        for col, ele in enumerate(array):
+            normalization[int(row + row_displacement), int(col + padding)] = ele
+    elif len(array) > arrays_mean:
+        diff = math.ceil(len(array) / arrays_mean)
+        for ind in range(diff):
+            iter = arrays_mean * ind
+            for col, ele in enumerate(array[iter:iter + arrays_mean]):
+                normalization[int(row + row_displacement + ind), col] = ele
+        row_displacement += diff - 1
+"""
+for row, array in enumerate(arrays_lists):
+    if len(array) == arrays_mean:
+        for col, ele in enumerate(array):
+            normalization[int(row+row_displacement)][col] = ele
+    if len(array) < arrays_mean:
+        diff = (arrays_mean - len(array))/2
+        if diff != int(diff):
+            displacement = math.floor(diff)
+            displacementF = displacement+1
+        else:
+            displacement = diff
+            displacementF = diff
+        for col, ele in enumerate(array):
+            normalization[int(row+row_displacement)][int(col+displacement)] = ele
+    if len(array) > arrays_mean:
+        # CORRECTED BY CHAT GPT
+        diff = math.ceil(len(array) / arrays_mean)
+        for ind in range(diff):
+            iter_start = arrays_mean * ind
+            chunk = array[iter_start:iter_start + arrays_mean]
+            if len(chunk) < arrays_mean:
+                padding = (arrays_mean - len(chunk)) // 2
+                for col, ele in enumerate(chunk):
+                    normalization[int(row + row_displacement + ind), int(col + padding)] = ele
+            else:
+                for col, ele in enumerate(chunk):
+                    normalization[int(row + row_displacement + ind), col] = ele
+        row_displacement += diff-1
+"""
+        diff = math.ceil(len(array) / arrays_mean)
+        for ind in range(0, diff):
+            iter = arrays_mean*ind
+            if len(array[array[iter:iter + arrays_mean]]) < arrays_mean:
+                diff = len((array[array[iter:iter + arrays_mean]]) - len(array)) / 2
+                if diff != int(diff):
+                    displacement = math.floor(diff)
+                    displacementF = displacement + 1
+                else:
+                    displacement = diff
+                    displacementF = diff
+                for col, ele in enumerate(array[array[iter:iter + arrays_mean]]):
+                    normalization[int(row + row_displacement)][int(col + displacement)] = ele
+            else:
+                for col, ele in enumerate(array[iter:iter + arrays_mean]):
+                    if col < arrays_mean:
+                        normalization[int(row + row_displacement+ind)][col] = array[int(col+iter)]
+"""
+
+print(normalization)
+print(normalization.shape)
+print(larger)
 print(f"\nOUTPUT SUMMARY:")
 print(f"Structures correctly processed: {counter - errors_num}.")
 print(f"Structures not correctly classified: {errors_num}.\n")

@@ -40,7 +40,7 @@ consensus1982 = {
     "TYR": 0.02
 }
 
-hydrophobic = ["ALA", "VAL", "LEU", "ILE", "PHE", "TRP", "MET", "PRO"]
+hydrophobic = ["ALA", "VAL", "LEU", "ILE", "PHE", "TRP", "MET", "PRO","CYS", "GLY", "MSE"]
 
 # ARGUMENTS:
 fullPDB = sys.argv[1]

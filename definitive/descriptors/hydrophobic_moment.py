@@ -241,12 +241,15 @@ aminoacids_short = {
     "SER": "S", "THR": "T", "TRP": "W", "TYR": "Y", "VAL": "V", "MSE": "U"
 }
 
-# Hydrophobic (Nonpolar) Amino Acids
-hydrophobic = ["A", "V", "L", "I", "F", "W", "M", "P"]
-# Charged Amino Acids (Basic and Acidic)
+# Hydrophobic (Nonpolar) residues
+hydrophobic = ["A", "V", "L", "I", "F", "W", "M", "P","C","G","U"]
+# Charged residues (Basic and Acidic)
 charged = ["K", "R", "H","D", "E"]
-# Aromatic Amino Acids
+# Aromatic residues
 aromatic = ["F", "W", "Y"]
+# Polar residues
+polar = ["S", "T", "Q", "N"]
+
 
 # Diccionario one-hot para aminoácidos
 aminoacids1 = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I","L", "K", "M", "F", "P", "S", "T", "W", "Y", "V", "U"]

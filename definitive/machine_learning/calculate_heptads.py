@@ -307,11 +307,18 @@ for row, array in enumerate(arrays_lists):
             if state.upper() in result:
                 oligomer = oligomerization_states[state]
     except:
-        errors_num += 1
-        errors.write(f"{pdb}\n")
-        errors_list.append(pdb)
-        traceback.print_exc()
-        print(f"Error in {pdb.upper()}. Could not process structure number {counter}.")
+        try:
+            result = subprocess.check_output(f"grep 'SOFTWARE DETERMINED QUATERNARY STRUCTURE:' {ent_file}", shell=True)
+            result = str(result)
+            for state in oligomerization_states.keys():
+                if state.upper() in result:
+                    oligomer = oligomerization_states[state]
+        except:
+            errors_num += 1
+            errors.write(f"{pdb}\n")
+            errors_list.append(pdb)
+            traceback.print_exc()
+            print(f"Error in {pdb.upper()}. Could not process structure number {counter}.")
 
     if len(array) == arrays_mean:
         for col, ele in enumerate(array):

@@ -351,7 +351,7 @@ for row, array in enumerate(arrays_lists):
                                                                           remainder_start:remainder_start + arrays_mean]
         data.at[int(row + row_displacement + diff), "pdb"] = df['pdb'][index_pdbs]
         data.at[int(row + row_displacement + diff), "oligomer"] = oligomer
-        row_displacement += diff-1
+        row_displacement += diff
     index_pdbs += 1
 data['data'] = normalization.tolist()
 data.to_csv('data.csv', sep = '\t')

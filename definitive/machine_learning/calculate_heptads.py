@@ -338,7 +338,6 @@ for row, array in enumerate(arrays_lists):
         data.at[int(row+row_displacement), "pdb"] = df['pdb'][index_pdbs]
         data.at[int(row + row_displacement), "oligomer"] = oligomer
     if len(array) > arrays_mean:
-        # CORRECTED BY CHAT GPT
         diff = math.ceil(len(array) / arrays_mean)
         for ind in range(diff):
             iter_start = arrays_mean * ind

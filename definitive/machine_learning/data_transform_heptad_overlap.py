@@ -35,11 +35,12 @@ data = pd.DataFrame(columns=["pdb","data","oligomer"])
 
 # DICTIONARIES:
 helicalStructure = {
-    "hydrophobic": ["A", "V", "L", "I", "F", "W", "M", "P", "C", "G"],  # Hydrophobic amino acids
+    "hydrophobic": ["A", "V", "L", "I", "F", "W", "M", "C", "G"],  # Hydrophobic amino acids
     "hydrophilic": ["N", "Q", "S", "T"],  # Hydrophilic amino acids
     "charged": ["K", "R", "H", "D", "E"],  # Charged amino acids (acidic and basic)
     "polar": ["S", "T", "Q", "N"],  # Polar amino acids (often hydrophilic)
-    "aromatic": ["F", "W", "Y"]  # Aromatic amino acids
+    "aromatic": ["F", "W", "Y"],  # Aromatic amino acids
+    "disruptive": ["P"]  # Disruptive proline, it is hydrophobic but will be considered separatedly
 }
 
 aminoacids = {

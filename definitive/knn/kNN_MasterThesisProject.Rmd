@@ -12,6 +12,10 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# REFERENCES:
+# This script has been adapted from:
+# Lantz, B. (2015). Machine Learning with R: Expert Techniques for Predictive Modeling to Solve All Your Data Analysis Problems. Germany: Packt Publishing.
+
 ## Libraries
 ```{r}
 library(knitr)

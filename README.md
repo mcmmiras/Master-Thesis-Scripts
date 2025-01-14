@@ -22,11 +22,7 @@ Additionally, I used the already existing code - developed previously by the tea
 
 - <strong>calculate_ss_content.py</strong>: uses characteristic vectors as mesure to identify secondary structure motifs. Further information can be found in the referenced literature at the end of this README).
 
-Having filtered the PDB as I intented, I started working on the scripts for descriptors extraction. I am currently futher improving this part of my thesis, so I will progressively update my code.
-Up to this date, I am developing the follwing scripts:
-
-- <strong>calculate_environment_stickiness.py</strong>: this script is based on E. D. Levy's team approach to stickiness values of residues, environment and interaction propensity.
-- <strong>calculate_net_charge_heptads_seqlength.py</strong>: this script uses E. D. Levy's team work as well, but additionally implements heptad identification in helical structures and obtains the sequence length from a fasta file. It is currently being adjusted to analyze coiled-coils with +1 different chains.
+Having filtered the PDB as I intented, I started working on the scripts for descriptors extraction. All the scripts intended to extract descriptors can be  located in the “descriptors” and “definitive” directories, and are further explained in my Master Thesis Project.
 
 <strong>REFERENCES:</strong>
 

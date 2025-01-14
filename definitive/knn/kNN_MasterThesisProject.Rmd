@@ -1,0 +1,236 @@
+---
+title: "k-NN - Master Thesis Project"
+author: "Mari Carmen Martín Miras"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+```{r}
+library(knitr)
+library(kableExtra)
+library(class)
+library(gmodels)
+library(pROC)
+library(ggplot2)
+library(ggseqlogo)
+library(caret)
+```
+
+## Functions
+```{r}
+# Minmax function to normalize data:
+minmax = function(df){
+  df=(df-min(df))/(max(df)-min(df))
+  return(df)
+}
+
+# k-NN model function:
+knn_model = function(data_training,data_test,data_training_labels,data_test_labels,k){
+  # Model run to predict labels from the test set
+  data_test_pred = knn(data_training, data_test, cl = data_training_labels, k=k)
+  # Confusion matrix of results
+  print(confusionMatrix(as.factor(data_test_labels), as.factor(data_test_pred)))
+  # Results stored for later graphical representation
+  results = confusionMatrix(as.factor(data_test_labels), as.factor(data_test_pred))
+  accuracy = round(results$overall["Accuracy"],2)
+  error = round(1-accuracy,2)
+  print(paste("This is the error", error))
+  result = c(accuracy, error)
+  #print(result)
+  return(result)
+}
+
+# Function to reduce analyzed data from specific class types:
+reduce_data = function(data, oligomers, rest, final_size){
+  new_data = data.frame()
+  for (i in oligomers){
+    data_red = data[which(data$oligomer == i),]
+    ind_data_red = sort(sample(nrow(data_red), final_size))
+    data_red = data_red[ind_data_red,]
+    new_data = rbind(new_data,data_red)
+  }
+  for (i in rest){
+    new_data = rbind(new_data, data[data$oligomer==c(i),])
+  }
+  return(new_data)
+}
+
+# Function to join specific class types in a single group:
+join_labels = function(data, labels_to_join,new_index){
+  for (i in labels_to_join){
+    ind = which(data$oligomer==i,)
+    data$oligomer[ind] = new_index
+  }
+  return(data)
+}
+
+# Function to only select specific classes:
+select_class = function(data, oligomers){
+  data = data[which(data$oligomer %in% oligomers),]
+  return(data)
+}
+```
+
+## Descriptors table
+```{r}
+descriptors = c("Net-charge", "Hydrophobicity scales", "Hydrophobic moment", "Sequence length", "Residue representation", "Aminoacid type proportions")
+description = c("Net-charge value for the whole structure.","Averaged hydrophobicity values. Used scales: Kyte-Doolittle (1982), Hopp-Woods (1983), Cornette (1987), Eisenberg (1984), Rose (1985), Janin (1979), Engelman-GES (1986).","Computed hydrophobic moment with consensus Eisenberg scale (1982 version)","Length of the structure sequence","Proportion of each aminoacid within the sequence.", "Proportion of each aminoacid type within the sequence (hydrophobic, disruptive prolines, aromatic and charged residues).")
+table = data.frame(descriptors, description)
+table %>%
+  kbl(caption = "Description of each descriptor used in the data extraction from coiled-coils", col.names = c("Descriptor type", "Description")) %>%
+  kable_classic(full_width=F, html_font = "Arial")
+```
+
+
+## Data import
+https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+```{r}
+# Random seed set to 312:
+set.seed(312)
+
+# Data importation
+data = read.csv("G:/Mi unidad/Semestre 3 (2024-2025)/knn/data_knn.csv", row.names=1)
+data = na.omit(data) # Remove missing values
+
+# Data modification to specific class types (optional)
+oligomers_list = c(5,6,7,8)
+selected = c(2,3)
+#data = reduce_data(data, oligomers_list, 25)
+#data = join_labels(data, oligomers_list, 5)
+#data = select_class(data, selected)
+
+# Data separation into "x" and "y" variables
+# Input data normalization (0-1): outputs and PDB IDs are excluded from the "x" variable
+x_notnormalized = data[,-which(names(data) %in% c("pdb","oligomer"))] 
+x = as.data.frame(lapply(x_notnormalized, minmax))
+# Output labels:
+y = data[, which(names(data) %in% c("oligomer"))]
+head(x)
+head(y)
+
+# Table with final used classes and corresponding sizes:
+#y_factor = factor(y, levels = c(3,4), labels = c("Trimer","Tetramer"))
+y_factor = factor(y, levels = c(2,3,4,5,6,7,8), labels = c("Dimer","Trimer","Tetramer","Pentamer","Hexamer","Heptamer","Octamer"))
+table = table(y_factor)
+
+table %>%
+  kbl(caption = "Coiled-coils dataset distribution", col.names = c("Oligomer","Total coiled-coils") ) %>%
+  kable_classic(full_width = F, html_font = "Arial")
+```
+
+## Test and train datasets generation
+```{r}
+# Random seed 312:
+set.seed(312)
+
+# Random select training rows and define test rows:
+ind_training70 = sort(sample(nrow(x), 0.7 * nrow(x)))
+ind_test30 =  setdiff(1:nrow(x), ind_training70)
+training70 = x[ind_training70,]
+test30 = x[ind_test30, ]
+
+# Select corresponding labels for each set:
+lab_training70 = y[ind_training70]
+lab_test30 = y[ind_test30]
+```
+
+# k-Nearest Neighbour model
+```{r}
+# k-values to test
+k_max = round(sqrt(nrow(training70))) # Maximum assessed k-value
+k_list = seq(1,k_max)
+k_list = seq(1,100)
+
+# Results list to store obtained values from each tested k-value
+accuracy_list = c()
+error_list = c()
+
+# k-NN model applied to each k-value
+for(k in k_list){
+  cat(paste("Testing with k-value =", k,"\n\n"))
+  results = knn_model(training70, test30, lab_training70, lab_test30,k)
+  accuracy_list = c(accuracy_list, results[[1]])
+  error_list = c(error_list, results[[2]])
+}
+```
+## Model accuracy results with different k-values
+https://www.geeksforgeeks.org/k-nn-classifier-in-r-programming/
+```{r}
+# Summary of results
+table = data.frame(k_list,accuracy_list, error_list)
+
+table %>%
+  kbl(caption = "Model results for each tested k-value", col.names = c("k-value","Accuracy","Classification error") ) %>%
+  kable_classic(full_width = F, html_font = "Arial")
+
+# Accuracy evolution with increasing k:
+accuracy_data = data.frame(K = k_list, Accuracy = accuracy_list)
+ggplot(accuracy_data, aes(x = K, y = Accuracy)) +
+  geom_line(color = "pink", linewidth = 1) +
+  geom_point(color = "lightgreen", size = 1.5) +
+  labs(title = "Model accuracy results for increasing k-values",
+       x = "k-value",
+       y = "Accuracy") +
+  theme_minimal()
+  ggsave("accuracyWhole.pdf", dpi = "retina", device = cairo_pdf)
+
+# Classification error evolution with increasing k:
+error_data = data.frame(K = k_list, Error = error_list)
+ggplot(accuracy_data, aes(x = K, y = error_list)) +
+  geom_line(color = "pink", linewidth = 1) +
+  geom_point(color = "red", size = 1.5) +
+  labs(title = "Model classification errors for increasing k-values",
+       x = "k-value",
+       y = "Classification Error") +
+  theme_minimal()
+  ggsave("errorWhole.pdf", dpi = "retina", device = cairo_pdf)
+```
+
+# Principal Component Analysis (PCA)
+https://gexijin.github.io/learnR/visualizing-the-iris-flower-data-set.html#principal-component-analysis-pca
+```{r}
+data_pca = data
+row.names(data_pca) = data_pca$pdb
+data_pca = data_pca[,-which(names(data_pca)=="pdb")]
+pca = prcomp(data_pca[,-which(names(data_pca)=="oligomer")], scale = TRUE)
+pca
+plot(pca)
+head(pca$x)
+
+
+pcaData <- as.data.frame(pca$x[, 1:2]) # extract first two columns and convert to data frame
+pcaData <- cbind(pcaData, data_pca$oligomer) # bind by columns
+colnames(pcaData) <- c("PC1", "PC2", "Oligomer") # change column names
+pcaData$Oligomer <- as.factor(pcaData$Oligomer)
+
+library(ggplot2)
+percentVar <- round(100 * summary(pca)$importance[2, 1:2], 0) # compute % variances
+ggplot(pcaData) +
+  aes(PC1, PC2, color = Oligomer, shape = Oligomer) + # define plot area
+  geom_point(size = 2) +# adding data points
+  scale_shape_manual(values = 1:7) + # Specify shapes for up to 7 levels
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) + # x label
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) + # y label
+  ggtitle("Principal component analysis (PCA)") + # title
+  theme(aspect.ratio = 1) # width and height ratio
+  ggsave("pca.pdf", device = cairo_pdf, dpi="retina")
+```
+
+# Tables for Presentation
+```{r}
+descriptor_type = c("Geometrical","Sequence-based","Physicochemical","Oligomerization")
+descriptors = c("Characteristic vectors and ALEPH. Helical content annotation (Sammito et al., 2013; Medina et al., 2020).","Sequence direct calculations, aminoacid type proportions, heptad-repeat identification (Lupas, 1996; Lupas & Gruber, 2005).","Net-charge, hydrophobicity values and environment-based hydrophobic moments (Empereur-Mot et al., 2019).","Oligomerization state treated as predicted output. Higher number of chains involve greater triggered oligomerization (Seisdedos et al., 2022).")
+table = data.frame(descriptor_type, descriptors)
+table %>%
+  kbl(caption = "Description of each descriptor type used in the data extraction from coiled-coils", col.names = c("Type", "Descriptors")) %>%
+  kable_classic(full_width=F, html_font = "Arial")
+```
+

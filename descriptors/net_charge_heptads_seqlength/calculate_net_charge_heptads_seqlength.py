@@ -27,6 +27,8 @@ if not "modified_PDBs" in os.listdir(dir):
     subprocess.run(f"mkdir modified_PDBs/", shell=True)
 if not "heptads_annotation" in os.listdir(dir):
     subprocess.run(f"mkdir heptads_annotation/", shell=True)
+if not "single_chain_PDBs" in os.listdir(dir):
+    subprocess.run(f"mkdir single_chain_PDBs/", shell=True)
 resultsHeptads = open("output_heptads_annotation.txt", "w")
 errors = open("unprocessed_files_traceback.txt","w")
 
@@ -187,7 +189,14 @@ for i in df.index:
                 structure = parser.get_structure(pdb,ent_file)
                 #sequence, positions, seq_length, unique_chains =
                 df_heptads = assign_heptads(pdb,i)
-                df_heptads.at[i,"net_charge"] = calculate_net_charge(ent_file)
+                for model in structure:
+                    for chain in model:
+                        if chain.id == "A":
+                            # CALCULATE NET CHARGE FROM SINGLE CHAIN:
+                            io.set_structure(chain)
+                            if f"pdb{pdb}_A.pdb" not in os.listdir(f"{dir}/single_chain_PDBs"):
+                                io.save(f"single_chain_PDBs/pdb{pdb}_A.pdb")
+                            df_heptads.at[i,"net_charge"] = calculate_net_charge(ent_file)
                 df_heptads.to_csv(f"heptads_annotation/{pdb}_heptads_annotation.csv", sep="\t")
                 #df.at[i, "sequence"] = sequence
                 #df.at[i, "unique_chains"] = unique_chains

@@ -291,7 +291,6 @@ for row, array in enumerate(arrays_lists):
         for col, ele in enumerate(array):
             normalization[int(row+row_displacement)][int(col+displacement)] = ele
     if len(array) > arrays_mean:
-        # CORRECTED BY CHAT GPT
         diff = math.ceil(len(array) / arrays_mean)
         for ind in range(diff):
             iter_start = arrays_mean * ind
